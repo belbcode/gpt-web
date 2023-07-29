@@ -9,9 +9,12 @@ from langchain.tools import BaseTool
 
 
 class SeleniumWrapper:
+
     def __init__(self, **kwargs):
 
         specified_agent = kwargs['browser_agent']
+        self.selection = None
+
 
         if specified_agent:
             self.driver = Browser_Agents[specified_agent]()
@@ -19,7 +22,13 @@ class SeleniumWrapper:
         
         self.driver = webdriver.Chrome()
 
+    def set(self, key, value):
+
+        self[key] = value
+        return 0
+
     def NavigateTool(self):
+
         driver = self.driver
 
         class Navigate(BaseTool):
@@ -30,13 +39,54 @@ class SeleniumWrapper:
             def _run(self, url: str):
                 driver.get(url)
                 html_el = driver.find_element(Attribute_Options.tag_name, 'html')
-                return f"Web-content: {html_el.text}\n HTML Element is currently stored and may be manipulated by pageparsing tools"
+                return f"Web-content: {html_el.text}\n You can further identify and manipulate this page's elements with your available tools."
                 
             def _arun(self, url: str):
                 raise NotImplementedError("This tool does not support async")
             
         return Navigate
-        
+    
+    def GetElementTool(self):
+
+        driver = self.driver
+        setter = self.set
+
+        class GetElement(BaseTool, self):
+
+            name="Get Element"
+            description="Useful for when you want to select a specific element on a page in order to maipulate it."
+
+            def _run(self, attribute: Attribute_Options, attribute_value: str ):
+                element = None
+                try:
+                    element = driver.find_element(Attribute_Options[attribute], attribute_value)
+                except(ValueError):
+                    return "Sorry that attribute value doesn't exist."
+                except(ConnectionError):
+                    return "Sorry the internet connection has been disrupted."
+                    
+                key = makeid(12)
+                setter(key, element)
+                return f"You have selected the {}"
+
+        return GetElement
+
+
+    
+    def ManipulateElementTool(self):
+        selection= self.selection
+        class ManipulateElement:
+
+            name="Manipulate Element"
+            def _run(self, action):
+                if not selection:
+                    raise AttributeError()
+
+
+    
+    def CloseDriver(self):
+        self.driver.quit()
+        return lambda _: webdriver.Chrome()
 
     def open_page(self, url):
         # https://www.youtube.com/watch?v=Xz514u4V_ts        
